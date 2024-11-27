@@ -1,4 +1,4 @@
-mport plotly.express as px
+import plotly.express as px
 import pandas as pd
 
 def create_magnitude_histogram(df):
