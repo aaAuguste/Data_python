@@ -1,8 +1,8 @@
 from dash import html
-from ..components import histogram, map
+from ..components import earthquake_visual_component
 
 layout = html.Div([
     html.H1("Earthquake Data Dashboard"),
-    histogram.histogram_component,
-    map.map_component
+    earthquake_visual_component.earthquake_component,
+
 ])
