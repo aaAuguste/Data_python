@@ -16,10 +16,19 @@ magnitude_selection = dcc.RangeSlider(
 
 # Layout containing both histogram and map
 earthquake_component = html.Div([
-    magnitude_selection,
-    dcc.Graph(id='histogram'),
-    dcc.Graph(id='map')
-])
+    html.Div([
+        html.Label("Sélectionnez la plage de magnitude", style={"font-weight": "bold", "margin-bottom": "10px"}),
+        magnitude_selection
+    ], style={"margin-bottom": "20px"}),
+
+    html.Div([
+        dcc.Graph(id='histogram', className="graph-container"),  
+    ], style={"margin-bottom": "20px"}),
+
+    html.Div([
+        dcc.Graph(id='map', className="graph-container"),  
+    ])
+], style={"padding": "20px", "background-color": "#f8f9fa", "border-radius": "10px"})
 
 @callback(
     Output('histogram', 'figure'),
