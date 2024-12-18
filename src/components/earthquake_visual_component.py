@@ -45,7 +45,7 @@ earthquake_component = html.Div([
     ], style={"margin-bottom": "20px"}),
 
     html.Div([
-        dcc.Graph(id='map', className="graph-container"),  
+        dcc.Graph(id='map', className="graph-container", config={'scrollZoom': True}),  
     ])
 ], style={"padding": "20px", "background-color": "#f8f9fa", "border-radius": "10px"})
 
