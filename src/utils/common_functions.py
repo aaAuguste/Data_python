@@ -32,13 +32,13 @@ def create_magnitude_histogram(df):
 
 def create_earthquake_map(df, map_style='open-street-map'):
     """
-    Crée une carte des séismes avec des points fixes.
-    Les zones ressenties sont affichées uniquement sous forme de texte au survol.
+    Crée une carte interactive des séismes.
+    Affiche une zone ressentie sous forme dynamique lorsqu'on survole un point.
     """
     # **1. Calcul de la distance ressentie (D) en fonction de la magnitude (M)**
-    # D = 10^(0.5 * M + C) 
+    # D = 10^(0.5 * M + C) avec C = 1
     C = 1
-    df['radius'] = df['mag'].apply(lambda M: 10 ** (0.5 * M + C))
+    df['radius'] = df['mag'].apply(lambda M: 10 ** (0.5 * M + C))  # Rayon de la zone en km
 
     # **2. Créer la carte interactive**
     fig = go.Figure()
@@ -49,63 +49,42 @@ def create_earthquake_map(df, map_style='open-street-map'):
         lon=df['longitude'],
         mode="markers",
         marker=dict(
-            size=8,  # Taille fixe des points
+            size=8,  # Taille fixe pour les points
             color="red",
             opacity=0.9
         ),
-        hoverinfo="text",
-        hovertext=df.apply(
-            lambda row: (
-                f"<b>Lieu :</b> {row['place']}<br>"
-                f"<b>Magnitude :</b> {row['mag']}<br>"
-                f"<b>Zone ressentie :</b> {round(row['radius'], 1)} km"
-            ), axis=1),
+        hovertemplate=(
+            "<b>Lieu :</b> %{hovertext}<br>"
+            "<b>Magnitude :</b> %{customdata[0]}<br>"
+            "<b>Zone ressentie :</b> %{customdata[1]} km"
+            "<extra></extra>"  # Supprime le nom de la trace en extra
+        ),
+        hovertext=df['place'],  # Affiche le lieu
+        customdata=np.stack((df['mag'], np.round(df['radius'], 1)), axis=-1),  # Données supplémentaires
         name="Séismes"
     ))
 
-    # **3. Ajouter des pseudo-cercles pour donner un effet visuel au survol**
-    """""
-    fig.add_trace(go.Scattermapbox(
-        lat=df['latitude'],
-        lon=df['longitude'],
-        mode="markers",
-        marker=dict(
-            size=df['radius'] * 3,  # Ajuster la taille du cercle pour l'effet visuel
-            color="rgba(0, 0, 255, 0.2)",  # Bleu clair
-            opacity=0.2  # Cercle légèrement transparent
-        ),
-        hoverinfo="skip",  # Empêche d'afficher des infos au survol des cercles
-        name="Zones ressenties"
-    ))
-    """
+
     # **4. Appliquer les styles dynamiques de la carte**
     if map_style in ['open-street-map', 'carto-positron', 'carto-darkmatter', 'white-bg']:
         fig.update_layout(mapbox_style=map_style)
     elif map_style == 'satellite-esri':
         fig.update_layout(
             mapbox_style="white-bg",
-            mapbox_layers=[
-                {
-                    "below": "traces",
-                    "sourcetype": "raster",
-                    "source": [
-                        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    ]
-                }
-            ]
+            mapbox_layers=[{
+                "below": "traces",
+                "sourcetype": "raster",
+                "source": ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"]
+            }]
         )
     elif map_style == 'ocean-esri':
         fig.update_layout(
             mapbox_style="white-bg",
-            mapbox_layers=[
-                {
-                    "below": "traces",
-                    "sourcetype": "raster",
-                    "source": [
-                        "https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
-                    ]
-                }
-            ]
+            mapbox_layers=[{
+                "below": "traces",
+                "sourcetype": "raster",
+                "source": ["https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"]
+            }]
         )
 
     # **5. Mise en page générale**
@@ -114,16 +93,32 @@ def create_earthquake_map(df, map_style='open-street-map'):
             zoom=1,
             center={"lat": df['latitude'].mean(), "lon": df['longitude'].mean()}
         ),
-        title="Carte des Séismes avec Zones Ressenties",
+        title="Carte des Séismes avec Zones Ressenties au Survol",
         margin=dict(l=0, r=0, t=50, b=0),
         paper_bgcolor="rgba(0,0,0,0)"
     )
 
     return fig
-
 def load_clean_data():
     """
     Charge les données nettoyées depuis un fichier CSV.
     """
     df = pd.read_csv('data/cleaned/earthquake_data_cleaned.csv')
     return df
+
+def create_hover_circle(lat, lon, radius):
+    """
+    Crée un cercle pour représenter la zone ressentie autour du point.
+    """
+    return go.Scattermapbox(
+        lat=[lat],
+        lon=[lon],
+        mode="markers",
+        marker=dict(
+            size=radius * 3,  # Taille du cercle ajustée
+            color="rgba(0, 0, 255, 0.3)",  # Bleu clair semi-transparent
+            opacity=0.5
+        ),
+        hoverinfo="skip",  # Pas d'interaction avec le cercle
+        name="Zone ressentie"
+    )
