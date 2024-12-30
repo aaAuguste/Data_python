@@ -156,8 +156,7 @@ def create_globe_figure(df_filtered, globe_style='open-street-map'):
         margin=dict(l=0, r=0, t=0, b=0),
         uirevision="globe_update",
         geo=dict(
-            projection_scale=0.85,
-            center=dict(lat=0, lon=0)
+            projection_scale=0.85
         )
     )
     return fig

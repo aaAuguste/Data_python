@@ -230,33 +230,39 @@ def update_visuals(mag_range, map_style, hover_data_map, hover_data_globe):
     # Globe 3D 
     globe_fig = common_functions.create_globe_figure(filtered_df, globe_style=map_style)
 
-    # Sur la CARTE
-    if hover_data_map:
-        lat_hover = hover_data_map['points'][0]['lat']
-        lon_hover = hover_data_map['points'][0]['lon']
-        hovered_point = filtered_df[
-            (filtered_df['latitude'] == lat_hover) & (filtered_df['longitude'] == lon_hover)
-        ]
-        if not hovered_point.empty:
-            mag_val = hovered_point['mag'].values[0]
-            radius_km = 10 ** (0.5 * mag_val + 1)
-            circle_coords = common_functions.create_geodesic_circle(lat_hover, lon_hover, radius_km)
+    '''''''''''''''''''''''''''''''''''''''
+    Problème sur le calcul de certaines zones particulièrement quand elle traverse le méridien 180E ou les pôles
+    Donc inactif pour le moment.
+    
+    '''''''''''''''''''''''''''''''''''''''
 
-            # Découpe si ça franchit ±180°
-            polygons_map = common_functions.split_polygon_at_dateline(circle_coords)
-            for poly in polygons_map:
-                lat_poly = [p[0] for p in poly]
-                lon_poly = [p[1] for p in poly]
-                circle_map = go.Scattermapbox(
-                    lat=lat_poly,
-                    lon=lon_poly,
-                    fill='toself',
-                    fillcolor='rgba(0, 0, 255, 0.2)',
-                    line=dict(color='blue'),
-                    hoverinfo='skip',
-                    name='Zone ressentie'
-                )
-                map_fig.add_trace(circle_map)
+    # Sur la CARTE
+    # if hover_data_map:
+    #     lat_hover = hover_data_map['points'][0]['lat']
+    #     lon_hover = hover_data_map['points'][0]['lon']
+    #     hovered_point = filtered_df[
+    #         (filtered_df['latitude'] == lat_hover) & (filtered_df['longitude'] == lon_hover)
+    #     ]
+    #     if not hovered_point.empty:
+    #         mag_val = hovered_point['mag'].values[0]
+    #         radius_km = 10 ** (0.5 * mag_val + 1)
+    #         circle_coords = common_functions.create_geodesic_circle(lat_hover, lon_hover, radius_km)
+
+    #         # Découpe si ça franchit ±180°
+    #         polygons_map = common_functions.split_polygon_at_dateline(circle_coords)
+    #         for poly in polygons_map:
+    #             lat_poly = [p[0] for p in poly]
+    #             lon_poly = [p[1] for p in poly]
+    #             circle_map = go.Scattermapbox(
+    #                 lat=lat_poly,
+    #                 lon=lon_poly,
+    #                 fill='toself',
+    #                 fillcolor='rgba(0, 0, 255, 0.2)',
+    #                 line=dict(color='blue'),
+    #                 hoverinfo='skip',
+    #                 name='Zone ressentie'
+    #             )
+    #             map_fig.add_trace(circle_map)
 
     # Sur le GLOBE
     if hover_data_globe:
