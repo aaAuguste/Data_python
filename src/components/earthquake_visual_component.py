@@ -8,27 +8,38 @@ import plotly.graph_objects as go
 
 from geopy.distance import distance as geopy_distance
 
-#Fonction pour créer un vrai cercle géodésique
 def create_geodesic_circle(lat_c, lon_c, radius_km, n_points=72):
-    """
-    Construit un polygone (liste de (lat, lon)) formant un cercle géodésique
-    de rayon `radius_km` autour de (lat_c, lon_c).
-    """
     coords = []
     step = 360 / n_points
     for i in range(n_points):
         bearing = i * step
         pt = geopy_distance(kilometers=radius_km).destination((lat_c, lon_c), bearing)
         coords.append((pt.latitude, pt.longitude))
-    # On ferme le polygone
     coords.append(coords[0])
     return coords
+
+def split_polygon_at_dateline(coords):
+    polygons = []
+    if not coords:
+        return polygons
+
+    current_poly = [coords[0]]
+    for i in range(1, len(coords)):
+        lat_prev, lon_prev = current_poly[-1]
+        lat_curr, lon_curr = coords[i]
+        if abs(lon_curr - lon_prev) > 180:
+            polygons.append(current_poly[:])
+            current_poly = [(lat_curr, lon_curr)]
+        else:
+            current_poly.append((lat_curr, lon_curr))
+    if current_poly:
+        polygons.append(current_poly)
+    return polygons
 
 df = common_functions.load_clean_data()
 mag_min = df['mag'].min()
 mag_max = df['mag'].max()
 
-# RangeSlider
 magnitude_selection = dcc.RangeSlider(
     id='magnitude-slider',
     min=mag_min,
@@ -39,7 +50,6 @@ magnitude_selection = dcc.RangeSlider(
     tooltip={"placement": "bottom", "always_visible": True}
 )
 
-# Dropdown style
 map_style_dropdown = dcc.Dropdown(
     id='map-style-dropdown',
     options=[
@@ -179,7 +189,6 @@ def toggle_sidebar(n_clicks, sidebar_style, content_style):
     Input('map', 'hoverData')
 )
 def update_visuals(mag_range, map_style, hover_data_map):
-    # Filtrage
     filtered_df = df[df['mag'].between(*mag_range)]
 
     # 1) Histogram
@@ -200,7 +209,7 @@ def update_visuals(mag_range, map_style, hover_data_map):
         uirevision='map_update'
     )
 
-    # Survol carte => on calcule un cercle géodésique
+    # Survol => calcul geodesique, PUIS split
     if hover_data_map:
         lat_hover = hover_data_map['points'][0]['lat']
         lon_hover = hover_data_map['points'][0]['lon']
@@ -210,23 +219,22 @@ def update_visuals(mag_range, map_style, hover_data_map):
         if not hovered_point.empty:
             mag_val = hovered_point['mag'].values[0]
             radius_km = 10 ** (0.5 * mag_val + 1)
-
-            # On utilise create_geodesic_circle
             circle_coords = create_geodesic_circle(lat_hover, lon_hover, radius_km)
 
-            # On trace tout en un bloc
-            lat_poly = [p[0] for p in circle_coords]
-            lon_poly = [p[1] for p in circle_coords]
-
-            circle_map = go.Scattermapbox(
-                lat=lat_poly,
-                lon=lon_poly,
-                fill='toself',
-                fillcolor='rgba(0,0,255,0.2)',
-                line=dict(color='blue'),
-                hoverinfo='skip',
-                name='Zone ressentie'
-            )
-            map_fig.add_trace(circle_map)
+            #on split si franchit ±180
+            polygons_map = split_polygon_at_dateline(circle_coords)
+            for poly in polygons_map:
+                lat_poly = [p[0] for p in poly]
+                lon_poly = [p[1] for p in poly]
+                circle_map = go.Scattermapbox(
+                    lat=lat_poly,
+                    lon=lon_poly,
+                    fill='toself',
+                    fillcolor='rgba(0,0,255,0.2)',
+                    line=dict(color='blue'),
+                    hoverinfo='skip',
+                    name='Zone ressentie'
+                )
+                map_fig.add_trace(circle_map)
 
     return hist_fig, map_fig
