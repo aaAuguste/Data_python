@@ -2,6 +2,7 @@ import plotly.express as px
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
+from geopy.distance import distance as geopy_distance
 
 def create_magnitude_histogram(df):
     """
@@ -102,3 +103,103 @@ def create_hover_circle(lat, lon, radius):
         hoverinfo="skip",
         name="Zone ressentie"
     )
+
+def create_globe_figure(df_filtered, globe_style='open-street-map'):
+    """
+    Crée un globe (projection orthographique)
+    en adaptant approximativement les couleurs land/ocean au style choisi.
+    """
+    land_color = "rgb(229,229,229)"
+    ocean_color = "rgb(135,206,250)"
+    if globe_style == 'carto-darkmatter':
+        land_color = "rgb(40,40,40)"
+        ocean_color = "rgb(30,30,30)"
+    elif globe_style == 'carto-positron':
+        land_color = "rgb(250,250,250)"
+        ocean_color = "rgb(220,220,220)"
+    elif globe_style == 'ocean-esri':
+        land_color = "rgb(236,236,236)"
+        ocean_color = "rgb(173,216,230)"
+    elif globe_style == 'satellite-esri':
+        land_color = "rgb(70,120,50)"
+        ocean_color = "rgb(30,60,130)"
+
+    fig = go.Figure()
+
+    # Points sismiques
+    fig.add_trace(go.Scattergeo(
+        lat=df_filtered['latitude'],
+        lon=df_filtered['longitude'],
+        mode='markers',
+        marker=dict(size=4, color='red', opacity=0.7),
+        text=df_filtered['place'],
+        hovertemplate="<b>Lieu:</b> %{text}<br>Lat:%{lat}, Lon:%{lon}<extra></extra>"
+    ))
+
+    # Projection orthographique
+    fig.update_geos(
+        projection_type="orthographic",
+        showcountries=True,
+        showcoastlines=True,
+        showland=True,
+        landcolor=land_color,
+        oceancolor=ocean_color,
+        showocean=True
+    )
+
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="#2A2E3E",
+        plot_bgcolor="#2A2E3E",
+        font=dict(color="#FFFFFF"),
+        height=500,
+        margin=dict(l=0, r=0, t=0, b=0),
+        uirevision="globe_update",
+        geo=dict(
+            projection_scale=0.85,
+            center=dict(lat=0, lon=0)
+        )
+    )
+    return fig
+
+def create_geodesic_circle(lat_c, lon_c, radius_km, n_points=72):
+    """
+    Construit un polygone (liste de (lat, lon)) formant un cercle géodésique
+    de rayon `radius_km` autour de (lat_c, lon_c).
+    """
+    coords = []
+    step = 360 / n_points
+    for i in range(n_points):
+        bearing = i * step
+        pt = geopy_distance(kilometers=radius_km).destination((lat_c, lon_c), bearing)
+        coords.append((pt.latitude, pt.longitude))
+    # Boucler en revenant au premier point
+    coords.append(coords[0])
+    return coords
+
+def split_polygon_at_dateline(coords):
+    """
+    Découpe la liste de points (lat, lon) en plusieurs polygones
+    si l'on franchit ±180° de longitude. Évite les grandes lignes
+    qui traversent la map ou le globe quand le cercle est très grand.
+    
+    Retourne une liste de polygones, chacun ne franchissant pas ±180°.
+    """
+    polygons = []
+    if not coords:
+        return polygons
+
+    current_poly = [coords[0]]
+    for i in range(1, len(coords)):
+        lat_prev, lon_prev = current_poly[-1]
+        lat_curr, lon_curr = coords[i]
+        
+        if abs(lon_curr - lon_prev) > 180:  # Coupure
+            polygons.append(current_poly[:])
+            current_poly = [(lat_curr, lon_curr)]
+        else:
+            current_poly.append((lat_curr, lon_curr))
+    
+    if current_poly:
+        polygons.append(current_poly)
+    return polygons

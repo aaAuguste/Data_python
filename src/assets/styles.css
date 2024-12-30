@@ -15,13 +15,20 @@ h1, h2, h3, h4, h5, h6 {
     margin-bottom: 20px;
     color: #ffffff;
 }
-
 .graph-container {
     padding: 20px;
     background-color: #2A2E3E;
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     color: #ffffff;
+}
+
+/* KPI boxes */
+.kpi-box {
+    background-color: #343A4F;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 15px;
 }
 
 /* RangeSlider style */
