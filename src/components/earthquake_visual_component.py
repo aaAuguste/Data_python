@@ -9,30 +9,12 @@ import plotly.graph_objects as go
 from geopy.distance import distance as geopy_distance
 
 def create_geodesic_circle(lat_c, lon_c, radius_km, n_points=72):
-    """
-    Construit un polygone (liste de (lat, lon)) formant un cercle géodésique
-    de rayon `radius_km` autour de (lat_c, lon_c), en clampant la latitude
-    pour éviter la singularité à ±90°.
-    """
     coords = []
     step = 360 / n_points
     for i in range(n_points):
         bearing = i * step
         pt = geopy_distance(kilometers=radius_km).destination((lat_c, lon_c), bearing)
-        
-        # CLAMP latitude => éviter lat = ±90
-        lat_clamped = max(min(pt.latitude, 89.9999), -89.9999)
-        lon_clamped = pt.longitude
-
-        # SI on veut éviter EXACT ±180
-        if lon_clamped > 179.9999:
-            lon_clamped = 179.9999
-        elif lon_clamped < -179.9999:
-            lon_clamped = -179.9999
-        
-        coords.append((lat_clamped, lon_clamped))
-
-    # Fermer le polygone
+        coords.append((pt.latitude, pt.longitude))
     coords.append(coords[0])
     return coords
 
@@ -40,7 +22,6 @@ def split_polygon_at_dateline(coords):
     polygons = []
     if not coords:
         return polygons
-
     current_poly = [coords[0]]
     for i in range(1, len(coords)):
         lat_prev, lon_prev = current_poly[-1]
@@ -57,6 +38,9 @@ def split_polygon_at_dateline(coords):
 df = common_functions.load_clean_data()
 mag_min = df['mag'].min()
 mag_max = df['mag'].max()
+
+# Ajout d'un style/option "globe" => non, on va juste afficher un Graph "globe"
+# Sur un nouveau dcc.Graph(id='globe') par ex.
 
 magnitude_selection = dcc.RangeSlider(
     id='magnitude-slider',
@@ -82,7 +66,6 @@ map_style_dropdown = dcc.Dropdown(
     style={"color": "#000"}
 )
 
-# Styles : Sidebar ouverte / fermée
 SIDEBAR_OPEN = {
     "position": "absolute",
     "left": "0",
@@ -169,7 +152,13 @@ main_content = html.Div(
         # Map
         html.Div([
             dcc.Graph(id='map', className="graph-container", config={'scrollZoom': True}),
-        ], style={"margin-bottom": "20px"})
+        ], style={"margin-bottom": "20px"}),
+
+        # Nouveau : Globe
+        html.Div([
+            html.H3("Globe 3D (projection orthographique)", style={"margin-top": "20px"}),
+            dcc.Graph(id='globe', className="graph-container")
+        ])
     ],
     style=CONTENT_STYLE_OPEN
 )
@@ -202,11 +191,13 @@ def toggle_sidebar(n_clicks, sidebar_style, content_style):
 @callback(
     Output('histogram', 'figure'),
     Output('map', 'figure'),
+    Output('globe', 'figure'),
     Input('magnitude-slider', 'value'),
     Input('map-style-dropdown', 'value'),
     Input('map', 'hoverData')
 )
 def update_visuals(mag_range, map_style, hover_data_map):
+    # Filtrage
     filtered_df = df[df['mag'].between(*mag_range)]
 
     # 1) Histogram
@@ -227,7 +218,7 @@ def update_visuals(mag_range, map_style, hover_data_map):
         uirevision='map_update'
     )
 
-    # Survol => calcul geodesique, PUIS split
+    # Survol carte => zone ressentie (géodésique + découpe)
     if hover_data_map:
         lat_hover = hover_data_map['points'][0]['lat']
         lon_hover = hover_data_map['points'][0]['lon']
@@ -238,8 +229,6 @@ def update_visuals(mag_range, map_style, hover_data_map):
             mag_val = hovered_point['mag'].values[0]
             radius_km = 10 ** (0.5 * mag_val + 1)
             circle_coords = create_geodesic_circle(lat_hover, lon_hover, radius_km)
-
-            #on split si franchit ±180
             polygons_map = split_polygon_at_dateline(circle_coords)
             for poly in polygons_map:
                 lat_poly = [p[0] for p in poly]
@@ -255,4 +244,30 @@ def update_visuals(mag_range, map_style, hover_data_map):
                 )
                 map_fig.add_trace(circle_map)
 
-    return hist_fig, map_fig
+    # 3) Globe 
+    globe_fig = go.Figure(
+        data=go.Scattergeo(
+            lat=filtered_df['latitude'],
+            lon=filtered_df['longitude'],
+            mode='markers',
+            marker=dict(size=4, color='red', opacity=0.7),
+            text=filtered_df['place'],
+            hovertemplate="<b>Lieu:</b> %{text}<br>Lat:%{lat}, Lon:%{lon}<extra></extra>"
+        )
+    )
+    globe_fig.update_geos(
+        projection_type="orthographic",
+        showcountries=True,
+        showcoastlines=True,
+        showland=True
+    )
+    globe_fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="#2A2E3E",
+        plot_bgcolor="#2A2E3E",
+        font=dict(color="#FFFFFF"),
+        height=500,
+        margin=dict(l=0, r=0, t=0, b=0),
+    )
+
+    return hist_fig, map_fig, globe_fig
