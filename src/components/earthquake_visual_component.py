@@ -1,23 +1,45 @@
 from dash import dcc, html, Input, Output, State, callback
 from ..utils import common_functions
 from ..app import app
+
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
-# Chargement des données
+from geopy.distance import distance as geopy_distance
+
+#Fonction pour créer un vrai cercle géodésique
+def create_geodesic_circle(lat_c, lon_c, radius_km, n_points=72):
+    """
+    Construit un polygone (liste de (lat, lon)) formant un cercle géodésique
+    de rayon `radius_km` autour de (lat_c, lon_c).
+    """
+    coords = []
+    step = 360 / n_points
+    for i in range(n_points):
+        bearing = i * step
+        pt = geopy_distance(kilometers=radius_km).destination((lat_c, lon_c), bearing)
+        coords.append((pt.latitude, pt.longitude))
+    # On ferme le polygone
+    coords.append(coords[0])
+    return coords
+
 df = common_functions.load_clean_data()
+mag_min = df['mag'].min()
+mag_max = df['mag'].max()
 
-# Composants : RangeSlider, Dropdown
+# RangeSlider
 magnitude_selection = dcc.RangeSlider(
     id='magnitude-slider',
-    min=df['mag'].min(),
-    max=df['mag'].max(),
+    min=mag_min,
+    max=mag_max,
     step=0.1,
-    value=[df['mag'].min(), df['mag'].max()],
-    marks={str(int(mag)): str(int(mag)) for mag in range(int(df['mag'].min()), int(df['mag'].max()) + 1)},
+    value=[mag_min, mag_max],
+    marks={str(int(m)): str(int(m)) for m in range(int(mag_min), int(mag_max) + 1)},
     tooltip={"placement": "bottom", "always_visible": True}
 )
 
+# Dropdown style
 map_style_dropdown = dcc.Dropdown(
     id='map-style-dropdown',
     options=[
@@ -29,7 +51,7 @@ map_style_dropdown = dcc.Dropdown(
     ],
     value='open-street-map',
     clearable=False,
-    style={"color": "#000"}  # texte en noir pour le dropdown
+    style={"color": "#000"}
 )
 
 # Styles : Sidebar ouverte / fermée
@@ -67,7 +89,6 @@ CONTENT_STYLE_CLOSED = {
     "padding": "20px"
 }
 
-# Bouton pour toggler la sidebar
 menu_toggle_btn = html.Button(
     "☰ Menu",
     id="menu-toggle-btn",
@@ -83,7 +104,6 @@ menu_toggle_btn = html.Button(
     }
 )
 
-# Contenu de la sidebar
 sidebar_content = html.Div(
     id="sidebar-content",
     children=[
@@ -97,19 +117,17 @@ sidebar_content = html.Div(
         html.Div([
             html.Label("Contrôles de la carte", style={"font-weight": "bold", "color": "#ffffff"}),
             map_style_dropdown
-        ], style={"margin-bottom": "40px"})
+        ], style={"margin-bottom": "40px"}),
     ],
     style={"display": "block"}
 )
 
-# La sidebar (div) par défaut "ouverte"
 sidebar = html.Div(
     id="sidebar",
     children=[sidebar_content],
     style=SIDEBAR_OPEN
 )
 
-# Contenu principal (histogram + map)
 main_content = html.Div(
     id="main-content",
     children=[
@@ -123,22 +141,20 @@ main_content = html.Div(
         # Map
         html.Div([
             dcc.Graph(id='map', className="graph-container", config={'scrollZoom': True}),
-        ])
+        ], style={"margin-bottom": "20px"})
     ],
     style=CONTENT_STYLE_OPEN
 )
 
-# On assemble tout
 earthquake_component = html.Div(
     children=[sidebar, main_content],
     style={
         "position": "relative",
-        "height": "100vh",  # occupe toute la hauteur
-        "background-color": "#1B2033"  # fond global sombre
+        "height": "100vh",
+        "background-color": "#1B2033"
     }
 )
 
-# Callback pour toggler la sidebar
 @callback(
     Output("sidebar", "style"),
     Output("main-content", "style"),
@@ -150,13 +166,11 @@ earthquake_component = html.Div(
 def toggle_sidebar(n_clicks, sidebar_style, content_style):
     if not sidebar_style:
         return SIDEBAR_OPEN, CONTENT_STYLE_OPEN
-
     if sidebar_style.get("width") == "300px":
         return SIDEBAR_CLOSED, CONTENT_STYLE_CLOSED
     else:
         return SIDEBAR_OPEN, CONTENT_STYLE_OPEN
 
-# Callback principal
 @callback(
     Output('histogram', 'figure'),
     Output('map', 'figure'),
@@ -164,10 +178,12 @@ def toggle_sidebar(n_clicks, sidebar_style, content_style):
     Input('map-style-dropdown', 'value'),
     Input('map', 'hoverData')
 )
-def update_visuals(magnitude_range, map_style, hover_data):
-    filtered_df = df[df['mag'].between(*magnitude_range)]
+def update_visuals(mag_range, map_style, hover_data_map):
+    # Filtrage
+    filtered_df = df[df['mag'].between(*mag_range)]
+
+    # 1) Histogram
     hist_fig = common_functions.create_magnitude_histogram(filtered_df)
-    # Style sombre
     hist_fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="#2A2E3E",
@@ -175,6 +191,7 @@ def update_visuals(magnitude_range, map_style, hover_data):
         font=dict(color="#FFFFFF")
     )
 
+    # 2) Map
     map_fig = common_functions.create_earthquake_map(filtered_df, map_style=map_style)
     map_fig.update_layout(
         template="plotly_dark",
@@ -183,29 +200,33 @@ def update_visuals(magnitude_range, map_style, hover_data):
         uirevision='map_update'
     )
 
-    # Survol point
-    if hover_data:
-        lat_hover = hover_data['points'][0]['lat']
-        lon_hover = hover_data['points'][0]['lon']
+    # Survol carte => on calcule un cercle géodésique
+    if hover_data_map:
+        lat_hover = hover_data_map['points'][0]['lat']
+        lon_hover = hover_data_map['points'][0]['lon']
         hovered_point = filtered_df[
             (filtered_df['latitude'] == lat_hover) & (filtered_df['longitude'] == lon_hover)
         ]
         if not hovered_point.empty:
-            mag_hover = hovered_point['mag'].values[0]
-            radius = 10 ** (0.5 * mag_hover + 1)
-            circle_df = pd.DataFrame({
-                'latitude': [lat_hover],
-                'longitude': [lon_hover],
-                'radius': [radius]
-            })
-            hover_circle = px.scatter_mapbox(
-                circle_df,
-                lat='latitude',
-                lon='longitude',
-                size='radius',
-                color_discrete_sequence=["blue"],
-                opacity=0.3
+            mag_val = hovered_point['mag'].values[0]
+            radius_km = 10 ** (0.5 * mag_val + 1)
+
+            # On utilise create_geodesic_circle
+            circle_coords = create_geodesic_circle(lat_hover, lon_hover, radius_km)
+
+            # On trace tout en un bloc
+            lat_poly = [p[0] for p in circle_coords]
+            lon_poly = [p[1] for p in circle_coords]
+
+            circle_map = go.Scattermapbox(
+                lat=lat_poly,
+                lon=lon_poly,
+                fill='toself',
+                fillcolor='rgba(0,0,255,0.2)',
+                line=dict(color='blue'),
+                hoverinfo='skip',
+                name='Zone ressentie'
             )
-            map_fig.add_trace(hover_circle.data[0])
+            map_fig.add_trace(circle_map)
 
     return hist_fig, map_fig
