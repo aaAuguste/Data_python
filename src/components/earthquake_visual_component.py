@@ -9,12 +9,30 @@ import plotly.graph_objects as go
 from geopy.distance import distance as geopy_distance
 
 def create_geodesic_circle(lat_c, lon_c, radius_km, n_points=72):
+    """
+    Construit un polygone (liste de (lat, lon)) formant un cercle géodésique
+    de rayon `radius_km` autour de (lat_c, lon_c), en clampant la latitude
+    pour éviter la singularité à ±90°.
+    """
     coords = []
     step = 360 / n_points
     for i in range(n_points):
         bearing = i * step
         pt = geopy_distance(kilometers=radius_km).destination((lat_c, lon_c), bearing)
-        coords.append((pt.latitude, pt.longitude))
+        
+        # CLAMP latitude => éviter lat = ±90
+        lat_clamped = max(min(pt.latitude, 89.9999), -89.9999)
+        lon_clamped = pt.longitude
+
+        # SI on veut éviter EXACT ±180
+        if lon_clamped > 179.9999:
+            lon_clamped = 179.9999
+        elif lon_clamped < -179.9999:
+            lon_clamped = -179.9999
+        
+        coords.append((lat_clamped, lon_clamped))
+
+    # Fermer le polygone
     coords.append(coords[0])
     return coords
 
