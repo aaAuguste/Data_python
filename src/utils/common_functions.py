@@ -1,4 +1,3 @@
-import plotly.express as px
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
@@ -41,7 +40,6 @@ def create_earthquake_map(df, map_style='open-street-map'):
         hovertemplate=(
             "<b>Lieu :</b> %{hovertext}<br>"
             "<b>Magnitude :</b> %{customdata[0]}<br>"
-            "<b>Zone ressentie :</b> %{customdata[1]} km<extra></extra>"
         ),
         hovertext=df['place'],
         customdata=np.stack((df['mag'], np.round(df['radius'], 1)), axis=-1),
@@ -78,7 +76,7 @@ def create_earthquake_map(df, map_style='open-street-map'):
             zoom=1,
             center={"lat": df['latitude'].mean(), "lon": df['longitude'].mean()}
         ),
-        title="Carte des Séismes avec Zones Ressenties au Survol",
+        title="Carte des Séismes",
         margin=dict(l=0, r=0, t=50, b=0),
         font=dict(family="Montserrat, Arial, sans-serif", size=14)
     )
@@ -133,7 +131,8 @@ def create_globe_figure(df_filtered, globe_style='open-street-map'):
         mode='markers',
         marker=dict(size=4, color='red', opacity=0.7),
         text=df_filtered['place'],
-        hovertemplate="<b>Lieu:</b> %{text}<br>Lat:%{lat}, Lon:%{lon}<extra></extra>"
+        hovertemplate="<b>Lieu:</b> %{text}<br>Lat:%{lat}, Lon:%{lon}<extra></extra>",
+        name="Séismes"
     ))
 
     # Projection orthographique
@@ -163,7 +162,7 @@ def create_globe_figure(df_filtered, globe_style='open-street-map'):
 
 def create_geodesic_circle(lat_c, lon_c, radius_km, n_points=72):
     """
-    Construit un polygone (liste de (lat, lon)) formant un cercle géodésique
+    Construit un polygone (liste de (lat, lon)) formant un cercle géodésique(suivant la courbure de la terre)
     de rayon `radius_km` autour de (lat_c, lon_c).
     """
     coords = []
