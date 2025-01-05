@@ -29,8 +29,7 @@ def create_earthquake_map(df, map_style='open-street-map'):
     Crée une carte interactive des séismes.
     """
     C = -2.5
-    df['radius'] = df['mag'].apply(lambda M: 10 ** (0.5 * M + C))
-
+    df.loc[:, 'radius'] = 10 ** (0.5 *  df.loc[:, 'mag'] + C)
     fig = go.Figure()
     fig.add_trace(go.Scattermapbox(
         lat=df['latitude'],
