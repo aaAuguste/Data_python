@@ -29,7 +29,8 @@ def create_earthquake_map(df, map_style='open-street-map'):
     Crée une carte interactive des séismes.
     """
     C = -2.5
-    df.loc[:, 'radius'] = 10 ** (0.5 *  df.loc[:, 'mag'] + C)
+    # Calcul d'un rayon (ou autre mesure) pour chaque séisme en fonction de sa magnitude
+    df.loc[:, 'radius'] = 10 ** (0.5 * df.loc[:, 'mag'] + C)
     fig = go.Figure()
     fig.add_trace(go.Scattermapbox(
         lat=df['latitude'],
@@ -38,13 +39,14 @@ def create_earthquake_map(df, map_style='open-street-map'):
         marker=dict(size=8, color="#e74c3c", opacity=0.9),
         hovertemplate=(
             "<b>Lieu :</b> %{hovertext}<br>"
-            "<b>Magnitude :</b> %{customdata[0]}<br>"
+            "<b>Magnitude :</b> %{customdata}<br>"
         ),
         hovertext=df['place'],
-        customdata=np.stack((df['mag'], np.round(df['radius'], 1)), axis=-1),
+        customdata=df['mag'],
         name="Séismes"
     ))
 
+    # Choix du style de la carte (Mapbox)
     if map_style in ['open-street-map', 'carto-positron', 'carto-darkmatter', 'white-bg']:
         fig.update_layout(mapbox_style=map_style)
     elif map_style == 'satellite-esri':
@@ -161,8 +163,8 @@ def create_globe_figure(df_filtered, globe_style='open-street-map'):
 
 def create_geodesic_circle(lat_c, lon_c, radius_km, n_points=72):
     """
-    Construit un polygone (liste de (lat, lon)) formant un cercle géodésique(suivant la courbure de la terre)
-    de rayon `radius_km` autour de (lat_c, lon_c).
+    Construit un polygone (liste de (lat, lon)) formant un cercle géodésique
+    (suivant la courbure de la Terre) de rayon `radius_km` autour de (lat_c, lon_c).
     """
     coords = []
     step = 360 / n_points
@@ -171,7 +173,8 @@ def create_geodesic_circle(lat_c, lon_c, radius_km, n_points=72):
         pt = geopy_distance(kilometers=radius_km).destination((lat_c, lon_c), bearing)
         coords.append((pt.latitude, pt.longitude))
     # Boucler en revenant au premier point
-    coords.append(coords[0])
+    if coords:
+        coords.append(coords[0])
     return coords
 
 def split_polygon_at_dateline(coords):
@@ -191,7 +194,8 @@ def split_polygon_at_dateline(coords):
         lat_prev, lon_prev = current_poly[-1]
         lat_curr, lon_curr = coords[i]
         
-        if abs(lon_curr - lon_prev) > 180:  # Coupure
+        # Détection d'une "coupure" sur ±180° (antiméridien)
+        if abs(lon_curr - lon_prev) > 180:
             polygons.append(current_poly[:])
             current_poly = [(lat_curr, lon_curr)]
         else:

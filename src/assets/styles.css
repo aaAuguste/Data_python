@@ -1,3 +1,4 @@
+/* Import des fontes */
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
 
 body {
@@ -15,6 +16,7 @@ h1, h2, h3, h4, h5, h6 {
     margin-bottom: 20px;
     color: #ffffff;
 }
+
 .graph-container {
     padding: 20px;
     background-color: #2A2E3E;
@@ -43,4 +45,70 @@ h1, h2, h3, h4, h5, h6 {
 /* Transition plus fluide pour la sidebar */
 #sidebar {
     transition: width 0.3s;
+}
+
+/* -----------------------------------------
+   SIDEBAR (ouvert / fermé) via className
+----------------------------------------- */
+.sidebar-open {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 300px;
+    height: 100%;
+    background-color: #2A2E3E;
+    padding: 20px;
+    overflow: auto;
+    z-index: 9999; /* Pour passer au-dessus du contenu principal */
+}
+
+.sidebar-closed {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0px;
+    height: 100%;
+    background-color: #2A2E3E;
+    padding: 0px;
+    overflow: hidden;
+    z-index: 9999;
+}
+
+/* -----------------------------------------
+   CONTENT (ouvert / fermé) via className
+----------------------------------------- */
+.content-open {
+    margin-left: 320px;
+    padding: 20px;
+}
+
+.content-closed {
+    margin-left: 20px;
+    padding: 20px;
+}
+
+/* Bouton du menu (toggle) */
+.menu-toggle-btn {
+    background-color: #2A2E3E;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    font-size: 18px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+/* Conteneur global (hauteur totale) */
+.earthquake-container {
+    position: relative;
+    height: 100vh;
+    background-color: transparent;
+}
+
+/* Conteneur du globe 3D */
+.my-3d-globe-container {
+    padding: 10px;
+    background-color: #2A2E3E;
+    border-radius: 10px;
+    margin-top: 20px;
 }
