@@ -26,27 +26,14 @@ def create_magnitude_histogram(df):
 
 def create_earthquake_map(df, map_style='open-street-map'):
     """
-    Crée une carte interactive des séismes.
+    Crée une figure "vide" Mapbox, sans aucune couche de données,
+    juste le style, le zoom et le centre.
     """
-    C = -2.5
-    # Calcul d'un rayon (ou autre mesure) pour chaque séisme en fonction de sa magnitude
-    df.loc[:, 'radius'] = 10 ** (0.5 * df.loc[:, 'mag'] + C)
     fig = go.Figure()
-    fig.add_trace(go.Scattermapbox(
-        lat=df['latitude'],
-        lon=df['longitude'],
-        mode="markers",
-        marker=dict(size=8, color="#e74c3c", opacity=0.9),
-        hovertemplate=(
-            "<b>Lieu :</b> %{hovertext}<br>"
-            "<b>Magnitude :</b> %{customdata}<br>"
-        ),
-        hovertext=df['place'],
-        customdata=df['mag'],
-        name="Séismes"
-    ))
 
-    # Choix du style de la carte (Mapbox)
+    # Pas de fig.add_trace(...) ici
+
+    # Choix du style
     if map_style in ['open-street-map', 'carto-positron', 'carto-darkmatter', 'white-bg']:
         fig.update_layout(mapbox_style=map_style)
     elif map_style == 'satellite-esri':
@@ -72,6 +59,7 @@ def create_earthquake_map(df, map_style='open-street-map'):
             }]
         )
 
+    # Centrage/zoom automatique
     fig.update_layout(
         mapbox=dict(
             zoom=1,
@@ -82,6 +70,7 @@ def create_earthquake_map(df, map_style='open-street-map'):
         font=dict(family="Montserrat, Arial, sans-serif", size=14)
     )
     return fig
+
 
 def load_clean_data():
     """
@@ -204,3 +193,47 @@ def split_polygon_at_dateline(coords):
     if current_poly:
         polygons.append(current_poly)
     return polygons
+
+def add_fault_lines_mapbox(fig, tectonic_data):
+    """
+    Construit un unique Scattermapbox contenant toutes les failles.
+    Chaque segment est séparé par None, ce qui permet à Plotly
+    de tracer plusieurs lignes dans un seul trace.
+    """
+    all_lons = []
+    all_lats = []
+
+    for feature in tectonic_data["features"]:
+        geometry = feature["geometry"]
+        if geometry["type"] == "LineString":
+            coords = geometry["coordinates"]  # liste de [lon, lat]
+            for c in coords:
+                all_lons.append(c[0])
+                all_lats.append(c[1])
+            # Séparation entre segments
+            all_lons.append(None)
+            all_lats.append(None)
+
+        elif geometry["type"] == "MultiLineString":
+            for line_coords in geometry["coordinates"]:
+                # line_coords : liste de [lon, lat]
+                for c in line_coords:
+                    all_lons.append(c[0])
+                    all_lats.append(c[1])
+                all_lons.append(None)
+                all_lats.append(None)
+
+    # Retirer éventuellement le dernier None
+    if all_lons and all_lons[-1] is None:
+        all_lons.pop()
+        all_lats.pop()
+
+    # On ajoute UNE SEULE trace en mode "lines"
+    fig.add_trace(go.Scattermapbox(
+        lon=all_lons,
+        lat=all_lats,
+        mode="lines",
+        line=dict(color="orange", width=2),
+        name="Failles tectoniques"
+    ))
+    return fig

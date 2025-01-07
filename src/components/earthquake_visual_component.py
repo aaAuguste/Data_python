@@ -1,6 +1,15 @@
 from dash import dcc, html, Input, Output, State, callback
 from ..utils import common_functions
 import plotly.graph_objects as go
+import requests
+import json
+
+# URL du GeoJSON des frontières tectoniques
+geojson_url = "https://raw.githubusercontent.com/fraxen/tectonicplates/master/GeoJSON/PB2002_boundaries.json"
+
+response = requests.get(geojson_url)
+tectonic_data = json.loads(response.text)
+
 
 # Chargement du DataFrame des séismes depuis une fonction utilitaire
 df = common_functions.load_clean_data()
@@ -112,9 +121,23 @@ main_content = html.Div(
             dcc.Graph(id='histogram', className="graph-container")
         ),
 
-        # Carte (2D)
+        # Map 2D
         html.Div(
-            dcc.Graph(id='map', className="graph-container", config={'scrollZoom': True})
+            children=[
+                dcc.Graph(id='map', className="graph-container", config={'scrollZoom': True}),
+
+                # Checklist pour activer/désactiver failles et séismes
+                dcc.Checklist(
+                    id="layer-switch-2d",
+                    options=[
+                        {"label": "Failles tectoniques", "value": "failles"},
+                        {"label": "Séismes", "value": "seismes"}
+                    ],
+                    value=["failles", "seismes"],  # Tout coché par défaut
+                    style={"color": "#fff"}  # si besoin d'un style inline
+                )
+            ],
+            className="my-map-container"
         ),
 
         # Globe 3D
@@ -175,19 +198,21 @@ def toggle_sidebar(n_clicks, sidebar_class, content_class):
     Output('histogram', 'figure'),
     Output('map', 'figure'),
     Output('globe', 'figure'),
-    Input('magnitude-slider', 'value'),
-    Input('map-style-dropdown', 'value'),
-    Input('map', 'hoverData'),
-    Input('globe', 'hoverData'),
-    Input('zone-display-switch', 'value')
+    Input('magnitude-slider', 'value'),   # plage de magnitudes
+    Input('map-style-dropdown', 'value'), # style de carte
+    Input('layer-switch-2d', 'value'),    # couches cochées ("failles", "seismes")
+    Input('map', 'hoverData'),            # hover sur la carte
+    Input('globe', 'hoverData'),          # hover sur le globe
+    Input('zone-display-switch', 'value') # affichage zone ressentie sur le globe
 )
-def update_visuals(mag_range, map_style, hover_data_map, hover_data_globe, zone_switch):
+def update_visuals(mag_range, map_style, layers_checked, hover_data_map, hover_data_globe, zone_switch):
     """
     Met à jour les trois visualisations :
       - Histogramme des magnitudes
       - Carte 2D (Scattermapbox)
       - Globe 3D (Scattergeo orthographique)
     """
+
     # Filtrage du DataFrame sur la plage de magnitudes choisie
     filtered_df = df[df['mag'].between(*mag_range)]
 
@@ -201,7 +226,21 @@ def update_visuals(mag_range, map_style, hover_data_map, hover_data_globe, zone_
     )
 
     # 2) Carte 2D
+    # figure de base avec le style choisi
     map_fig = common_functions.create_earthquake_map(filtered_df, map_style=map_style)
+    # Afficher les failles si "failles" est coché
+    if "failles" in layers_checked:
+        map_fig = common_functions.add_fault_lines_mapbox(map_fig, tectonic_data)
+
+    # Afficher les séismes si l'utilisateur a coché "seismes"
+    if "seismes" in layers_checked:
+        map_fig.add_trace(go.Scattermapbox(
+            lat=filtered_df['latitude'],
+            lon=filtered_df['longitude'],
+            mode='markers',
+            marker=dict(size=8, color="#e74c3c", opacity=0.9),
+            name="Séismes"
+        ))
     map_fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="#2A2E3E",
@@ -213,12 +252,13 @@ def update_visuals(mag_range, map_style, hover_data_map, hover_data_globe, zone_
     globe_fig = common_functions.create_globe_figure(filtered_df, globe_style=map_style)
     globe_fig.update_layout(uirevision="globe_update")
 
-    # Gérer l'affichage des "zones ressenties" si coché
+    # Gérer l'affichage des "zones ressenties" (checklist "globe-zones") si l'utilisateur survole un séisme
     if 'globe-zones' in zone_switch and hover_data_globe:
         lat_hover = hover_data_globe['points'][0]['lat']
         lon_hover = hover_data_globe['points'][0]['lon']
         hovered_point = filtered_df[
-            (filtered_df['latitude'] == lat_hover) & (filtered_df['longitude'] == lon_hover)
+            (filtered_df['latitude'] == lat_hover) &
+            (filtered_df['longitude'] == lon_hover)
         ]
         if not hovered_point.empty:
             mag_val = hovered_point['mag'].values[0]
