@@ -5,5 +5,5 @@ layout = html.Div([
     html.H1("Les Séismes en 2024"),
     html.Div([
         earthquake_visual_component.earthquake_component
-    ], style={"padding": "20px", "margin": "0 auto", "max-width": "1200px"})
+    ], style={"padding": "20px", "margin": "0 auto", "maxWidth": "1200px"})
 ])

@@ -26,8 +26,8 @@ def create_magnitude_histogram(df):
 
 def create_earthquake_map(df, map_style='open-street-map'):
     """
-    Crée une figure "vide" Mapbox, sans aucune couche de données,
-    juste le style, le zoom et le centre.
+    Crée une figure Mapbox (sans séismes ni failles),
+    simplement centrée sur la zone moyenne du df (si non vide).
     """
     fig = go.Figure()
 
@@ -57,17 +57,26 @@ def create_earthquake_map(df, map_style='open-street-map'):
             }]
         )
 
-    # Centrage/zoom automatique
+    # Centrage et zoom
+    if not df.empty:
+        center_lat = df['latitude'].mean()
+        center_lon = df['longitude'].mean()
+    else:
+        # Si DF vide, centrer sur (0,0)
+        center_lat = 0
+        center_lon = 0
+
     fig.update_layout(
         mapbox=dict(
             zoom=1,
-            center={"lat": df['latitude'].mean(), "lon": df['longitude'].mean()}
+            center={"lat": center_lat, "lon": center_lon}
         ),
         title="Carte des Séismes",
         margin=dict(l=0, r=0, t=50, b=0),
         font=dict(family="Montserrat, Arial, sans-serif", size=14)
     )
     return fig
+
 
 
 def load_clean_data():
