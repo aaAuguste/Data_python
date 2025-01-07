@@ -137,18 +137,15 @@ main_content = html.Div(
         # Globe 3D
         html.Div([
             html.H3("Globe 3D (projection orthographique)"),
-            html.Div([
-                dcc.Checklist(
-                    id="zone-display-switch",
-                    options=[{'label': 'Afficher zones sur le Globe', 'value': 'globe-zones'}],
-                    value=[],
-                    style={"color": "#fff"}
-                ),
-                dcc.Graph(id='globe', className="graph-container")
+            dcc.Graph(id='globe', className="graph-container"),
+            dcc.Checklist(
+                id="zone-display-switch",
+                options=[{'label': 'Afficher zones sur le Globe', 'value': 'globe-zones'}],
+                value=[],
+                style={"color": "#fff"}
+            )
             ], className="my-3d-globe-container")
-        ])
-    ]
-)
+    ])
 
 # Assemblage final : sidebar + contenu
 earthquake_component = html.Div(
