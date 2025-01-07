@@ -31,8 +31,6 @@ def create_earthquake_map(df, map_style='open-street-map'):
     """
     fig = go.Figure()
 
-    # Pas de fig.add_trace(...) ici
-
     # Choix du style
     if map_style in ['open-street-map', 'carto-positron', 'carto-darkmatter', 'white-bg']:
         fig.update_layout(mapbox_style=map_style)
