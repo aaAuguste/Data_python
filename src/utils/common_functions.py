@@ -1,6 +1,5 @@
 import pandas as pd
 import plotly.graph_objects as go
-import numpy as np
 from geopy.distance import distance as geopy_distance
 
 def create_magnitude_histogram(df):
