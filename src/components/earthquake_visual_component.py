@@ -103,6 +103,20 @@ sidebar_content = html.Div(
         html.Label("Vue 2D / 3D"),
         view_switch,
 
+        # Ajout de la checklist pour les couches 2D
+        html.Div([
+            html.Br(),
+            html.Label("Couches (2D)"),
+            layer_switch_2d
+        ], style={"marginTop": "10px"}),
+
+        # Ajout de la checklist pour le globe 3D
+        html.Div([
+            html.Br(),
+            html.Label("Options (3D)"),
+            zone_display_switch
+        ], style={"marginTop": "10px"}),
+
         html.Hr(),
         html.H4("Infographies Sismiques"),
         html.Div([
@@ -146,11 +160,7 @@ main_content = html.Div(
             dcc.Graph(id='main-graph', className="graph-container", config={'scrollZoom': True})
         ),
 
-        # Checklist pour la vue 2D
-        html.Div(layer_switch_2d, style={"marginTop": "10px"}),
-
-        # Checklist pour la vue 3D
-        html.Div(zone_display_switch, style={"marginTop": "10px"})
+        
     ]
 )
 
