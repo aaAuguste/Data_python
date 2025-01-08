@@ -137,7 +137,8 @@ main_content = html.Div(
 
         # Histogramme
         html.Div(
-            dcc.Graph(id='histogram', className="graph-container")
+            dcc.Graph(id='histogram', className="graph-container"),
+            style={"marginBottom" : "20px"}
         ),
 
         # Un seul graph pour afficher soit la vue 2D, soit la vue 3D
