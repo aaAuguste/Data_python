@@ -56,7 +56,7 @@ view_switch = dcc.RadioItems(
         {"label": "Vue 3D", "value": "3D"}
     ],
     value="2D",  # par défaut
-    inputStyle={"margin-right": "5px"},
+    inputStyle={"marginRight": "5px"},
     style={"color": "#fff"}
 )
 
