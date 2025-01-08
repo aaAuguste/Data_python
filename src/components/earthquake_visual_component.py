@@ -9,211 +9,156 @@ geojson_url = "https://raw.githubusercontent.com/fraxen/tectonicplates/master/Ge
 response = requests.get(geojson_url)
 tectonic_data = json.loads(response.text)
 
-# Chargement du DataFrame des séismes depuis une fonction utilitaire
+# Chargement du DataFrame des séismes
 df = common_functions.load_clean_data()
 
 # Calcul des valeurs de référence pour la plage de magnitude
 mag_min = df['mag'].min()
 mag_max = df['mag'].max()
 
-# Quelques statistiques descriptives (total, moyenne, min, max)
+# Statistiques
 total_seismes = len(df)
 magnitude_moyenne = round(df['mag'].mean(), 2)
 magnitude_max_ = df['mag'].max()
 magnitude_min_ = df['mag'].min()
 
-# Composant RangeSlider pour sélectionner la plage de magnitudes
+# RangeSlider pour la plage de magnitude
 magnitude_selection = dcc.RangeSlider(
     id='magnitude-slider',
     min=mag_min,
     max=mag_max,
     step=0.1,
     value=[mag_min, mag_max],
-    marks={str(int(m)): str(int(m)) for m in range(int(mag_min), int(mag_max) + 1)},
+    marks={str(int(m)): str(int(m)) for m in range(int(mag_min), int(mag_max)+1)},
     tooltip={"placement": "bottom", "always_visible": True}
 )
 
-# Dropdown pour choisir le style de la carte
+# Dropdown pour le style de carte (utilisé à la fois pour 2D et 3D)
 map_style_dropdown = dcc.Dropdown(
     id='map-style-dropdown',
     options=[
         {'label': 'Open Street Map', 'value': 'open-street-map'},
         {'label': 'Satellite (Esri)', 'value': 'satellite-esri'},
-        {'label': 'Océans (Esri Ocean Base)', 'value': 'ocean-esri'},
+        {'label': 'Océans (Esri)', 'value': 'ocean-esri'},
         {'label': 'Carto Positron', 'value': 'carto-positron'},
         {'label': 'Carto Darkmatter', 'value': 'carto-darkmatter'}
     ],
     value='open-street-map',
     clearable=False,
-    style={"color": "#000"}  # Style inline, en camelCase si besoin
+    style={"color": "#000"}
 )
 
-# Bouton pour afficher/masquer le menu latéral
+# RadioItems pour choisir la vue 2D ou 3D
+view_switch = dcc.RadioItems(
+    id="view-switch",
+    options=[
+        {"label": "Vue 2D", "value": "2D"},
+        {"label": "Vue 3D", "value": "3D"}
+    ],
+    value="2D",  # par défaut
+    inputStyle={"margin-right": "5px"},
+    style={"color": "#fff"}
+)
+
+# Checklist pour activer/désactiver failles et séismes (uniquement en 2D)
+layer_switch_2d = dcc.Checklist(
+    id="layer-switch-2d",
+    options=[
+        {"label": "Failles tectoniques (2D)", "value": "failles"},
+        {"label": "Séismes (2D)", "value": "seismes"}
+    ],
+    value=["failles", "seismes"],
+    style={"color": "#fff"}
+)
+
+# Checklist pour afficher les zones sur le globe (3D)
+zone_display_switch = dcc.Checklist(
+    id="zone-display-switch",
+    options=[{'label': 'Afficher zones sur le Globe (3D)', 'value': 'globe-zones'}],
+    value=[],
+    style={"color": "#fff"}
+)
+
 menu_toggle_btn = html.Button(
     "☰ Menu",
     id="menu-toggle-btn",
     n_clicks=0,
-    className="menu-toggle-btn"  # défini dans style.css
+    className="menu-toggle-btn"
 )
 
-# Contenu interne de la sidebar
+
+# Sidebar : on y place le titre, les sliders, dropdown, radio, etc.
 sidebar_content = html.Div(
-    id="sidebar-content",
     children=[
         html.H2("Menu"),
-        # Contrôles de l'histogramme (RangeSlider)
-        html.Div([
-            html.Label("Contrôles de l'histogramme"),
-            magnitude_selection
-        ]),
-        # Contrôles de la carte (Dropdown)
-        html.Div([
-            html.Label("Contrôles de la carte"),
-            map_style_dropdown
-        ]),
+
+        html.Label("Contrôles de l'histogramme"),
+        magnitude_selection,
+
+        html.Br(),
+        html.Label("Contrôles de la carte"),
+        map_style_dropdown,
+
+        html.Br(),
+        html.Label("Vue 2D / 3D"),
+        view_switch,
+
         html.Hr(),
-        # Bloc d'infographies (KPIs)
+        html.H4("Infographies Sismiques"),
         html.Div([
-            html.H4("Infographies Sismiques"),
-            html.Div([
-                html.P("Nombre total de séismes"),
-                html.P(f"{total_seismes}", className="kpi-number")
-            ], className="kpi-box"),
-
-            html.Div([
-                html.P("Magnitude moyenne"),
-                html.P(f"{magnitude_moyenne}", className="kpi-number")
-            ], className="kpi-box"),
-
-            html.Div([
-                html.P("Magnitude min/max"),
-                html.P(f"{magnitude_min_} / {magnitude_max_}", className="kpi-number")
-            ], className="kpi-box"),
-        ])
-    ]
+            html.P("Nombre total de séismes"),
+            html.P(f"{total_seismes}", className="kpi-number")
+        ], className="kpi-box"),
+        html.Div([
+            html.P("Magnitude moyenne"),
+            html.P(f"{magnitude_moyenne}", className="kpi-number")
+        ], className="kpi-box"),
+        html.Div([
+            html.P("Magnitude min/max"),
+            html.P(f"{magnitude_min_} / {magnitude_max_}", className="kpi-number")
+        ], className="kpi-box"),
+    ],
+    id="sidebar-content"
 )
 
-# Conteneur global de la sidebar (ouverte par défaut)
 sidebar = html.Div(
-    id="sidebar",
     children=[sidebar_content],
+    id="sidebar",
     className="sidebar-open"
 )
 
-# Conteneur principal (ouvert par défaut)
+# Contenu principal : histogramme + main-graph + checklists 2D & 3D
 main_content = html.Div(
     id="main-content",
     className="content-open",
     children=[
-        # Bouton pour afficher la sidebar
+        # Bouton sidebar
         html.Div(menu_toggle_btn),
-        
+
         # Histogramme
         html.Div(
             dcc.Graph(id='histogram', className="graph-container")
         ),
 
-        # Map 2D + checklist
+        # Un seul graph pour afficher soit la vue 2D, soit la vue 3D
         html.Div(
-            children=[
-                dcc.Graph(
-                    id='map',
-                    className="graph-container",
-                    config={'scrollZoom': True}
-                ),
-                dcc.Checklist(
-                    id="layer-switch-2d",
-                    options=[
-                        {"label": "Failles tectoniques", "value": "failles"},
-                        {"label": "Séismes", "value": "seismes"}
-                    ],
-                    value=["failles", "seismes"],  # tout coché par défaut
-                    style={"color": "#fff"}
-                )
-            ],
-            className="my-map-container"
+            dcc.Graph(id='main-graph', className="graph-container", config={'scrollZoom': True})
         ),
 
-        # Globe 3D
-        html.Div([
-            html.H3("Globe 3D (projection orthographique)"),
-            dcc.Graph(id='globe', className="graph-container"),
-            dcc.Checklist(
-                id="zone-display-switch",
-                options=[{'label': 'Afficher zones sur le Globe', 'value': 'globe-zones'}],
-                value=[],
-                style={"color": "#fff"}
-            )
-            ], className="my-3d-globe-container")
-    ])
+        # Checklist pour la vue 2D
+        html.Div(layer_switch_2d, style={"marginTop": "10px"}),
 
-# Assemblage final : sidebar + contenu
+        # Checklist pour la vue 3D
+        html.Div(zone_display_switch, style={"marginTop": "10px"})
+    ]
+)
+
+# Assemblage final
 earthquake_component = html.Div(
     children=[sidebar, main_content],
     className="earthquake-container"
 )
 
-def create_earthquake_map(df, map_style='open-street-map'):
-    """
-    Crée une figure Mapbox vide (pas de séismes), configurée selon `map_style`.
-    """
-    fig = go.Figure()
-    # Choix du style de la carte
-    if map_style in ['open-street-map', 'carto-positron', 'carto-darkmatter', 'white-bg']:
-        fig.update_layout(mapbox_style=map_style)
-    elif map_style == 'satellite-esri':
-        fig.update_layout(
-            mapbox_style="white-bg",
-            mapbox_layers=[{
-                "below": "traces",
-                "sourcetype": "raster",
-                "source": [
-                    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                ]
-            }]
-        )
-    elif map_style == 'ocean-esri':
-        fig.update_layout(
-            mapbox_style="white-bg",
-            mapbox_layers=[{
-                "below": "traces",
-                "sourcetype": "raster",
-                "source": [
-                    "https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}"
-                ]
-            }]
-        )
-
-    # Centrage / Zoom
-    if not df.empty:
-        fig.update_layout(
-            mapbox=dict(
-                zoom=1,
-                center={
-                    "lat": df['latitude'].mean(),
-                    "lon": df['longitude'].mean()
-                }
-            ),
-            title="Carte des Séismes",
-            margin=dict(l=0, r=0, t=50, b=0),
-            font=dict(family="Montserrat, Arial, sans-serif", size=14)
-        )
-    else:
-        # Si DF vide, centrage arbitraire
-        fig.update_layout(
-            mapbox=dict(
-                zoom=1,
-                center={"lat": 0, "lon": 0}
-            ),
-            title="Carte (Pas de données)",
-            margin=dict(l=0, r=0, t=50, b=0),
-            font=dict(family="Montserrat, Arial, sans-serif", size=14)
-        )
-    return fig
-
-###############################################################################
-# Callback : affichage de la sidebar
-###############################################################################
 @callback(
     Output("sidebar", "className"),
     Output("main-content", "className"),
@@ -225,8 +170,8 @@ def create_earthquake_map(df, map_style='open-street-map'):
 def toggle_sidebar(n_clicks, sidebar_class, content_class):
     """
     Au clic sur le bouton menu-toggle-btn :
-    - Si la sidebar est "open", on la ferme -> "sidebar-closed" + "content-closed"
-    - Sinon, on l'ouvre -> "sidebar-open" + "content-open"
+     - Si la sidebar est "open", on la ferme -> "sidebar-closed" + "content-closed"
+     - Sinon, on l'ouvre -> "sidebar-open" + "content-open"
     """
     if not sidebar_class:
         return "sidebar-open", "content-open"
@@ -237,24 +182,21 @@ def toggle_sidebar(n_clicks, sidebar_class, content_class):
         return "sidebar-open", "content-open"
 
 
-###############################################################################
-# Callback : mise à jour des trois figures (histogramme, carte 2D, globe 3D)
-###############################################################################
 @callback(
     Output('histogram', 'figure'),
-    Output('map', 'figure'),
-    Output('globe', 'figure'),
-    Input('magnitude-slider', 'value'),   
-    Input('map-style-dropdown', 'value'), 
-    Input('layer-switch-2d', 'value'),    
-    Input('map', 'hoverData'),           
-    Input('globe', 'hoverData'),         
-    Input('zone-display-switch', 'value')
+    Output('main-graph', 'figure'),
+    Input('magnitude-slider', 'value'),     # plage magnitudes
+    Input('map-style-dropdown', 'value'),   # style
+    Input('layer-switch-2d', 'value'),      # failles/séismes
+    Input('zone-display-switch', 'value'),  # zones globe
+    Input('view-switch', 'value'),          # "2D" ou "3D"
+    Input('main-graph', 'hoverData')        # hover data (2D ou 3D)
 )
-def update_visuals(mag_range, map_style, layers_checked,
-                   hover_data_map, hover_data_globe,
-                   zone_switch):
-
+def update_visuals(mag_range, map_style, layers_2d, zone_3d, view_mode, hover_data):
+    """
+    Met à jour l'histogramme et le graphique principal (2D ou 3D),
+    selon le filtrage, la vue choisie et les couches cochées.
+    """
     # Filtrage
     filtered_df = df[df['mag'].between(*mag_range)]
 
@@ -267,74 +209,79 @@ def update_visuals(mag_range, map_style, layers_checked,
         font=dict(color="#FFFFFF")
     )
 
-    # 2) Carte 2D "vide" (pas de failles, pas de séismes)
-    map_fig = create_earthquake_map(filtered_df, map_style=map_style)
+    # 2) Vue 2D ou 3D ?
+    if view_mode == "2D":
+        # Créer la figure Mapbox
+        main_fig = common_functions.create_earthquake_map(filtered_df, map_style)
 
-    # Si "failles" coché -> ajout trace unique "Failles tectoniques"
-    if "failles" in layers_checked:
-        map_fig = common_functions.add_fault_lines_mapbox(map_fig, tectonic_data)
+        # Ajouter les failles si cochées
+        if "failles" in layers_2d:
+            main_fig = common_functions.add_fault_lines_mapbox(main_fig, tectonic_data)
 
-    # Si "seismes" coché -> ajout du scatter de séismes
-    if "seismes" in layers_checked:
-        map_fig.add_trace(go.Scattermapbox(
-            lat=filtered_df['latitude'],
-            lon=filtered_df['longitude'],
-            mode='markers',
-            marker=dict(size=8, color="#e74c3c", opacity=0.9),
-            name="Séismes",
-            showlegend=True
-        ))
+        # Ajouter les séismes si cochés
+        if "seismes" in layers_2d:
+            main_fig.add_trace(go.Scattermapbox(
+                lat=filtered_df['latitude'],
+                lon=filtered_df['longitude'],
+                mode='markers',
+                marker=dict(size=8, color="#e74c3c", opacity=0.9),
+                name="Séismes"
+            ))
 
-    # Si ni failles ni séismes cochés -> On ajoute une trace "fictive"
-    if not layers_checked:
-        map_fig.add_trace(go.Scattermapbox(
-            lon=[0],
-            lat=[0],
-            mode='markers',
-            marker=dict(size=1, color="rgba(0,0,0,0)"),
-            name="(Aucune couche)",
-            showlegend=True
-        ))
+        # Si ni failles ni séismes cochés -> trace fictive
+        if not layers_2d:
+            main_fig.add_trace(go.Scattermapbox(
+                lon=[0], lat=[0],
+                mode='markers',
+                marker=dict(size=1, color="rgba(0,0,0,0)"),
+                name="(Aucune couche)",
+                showlegend=True
+            ))
 
-    # Layout map
-    map_fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="#2A2E3E",
-        font=dict(color="#FFFFFF"),
-        uirevision='map_update'
-    )
+        # Mise en forme
+        main_fig.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="#2A2E3E",
+            font=dict(color="#FFFFFF"),
+            uirevision='map_update'
+        )
 
-    # 3) Globe 3D
-    globe_fig = common_functions.create_globe_figure(filtered_df, globe_style=map_style)
-    globe_fig.update_layout(uirevision="globe_update")
+    else:
+        # "3D" : on utilise create_globe_figure
+        main_fig = common_functions.create_globe_figure(filtered_df, globe_style=map_style)
+        main_fig.update_layout(
+            uirevision="globe_update",
+            template="plotly_dark",
+            paper_bgcolor="#2A2E3E",
+            font=dict(color="#FFFFFF")
+        )
 
-    if 'globe-zones' in zone_switch and hover_data_globe:
-        lat_hover = hover_data_globe['points'][0]['lat']
-        lon_hover = hover_data_globe['points'][0]['lon']
-        hovered_point = filtered_df[
-            (filtered_df['latitude'] == lat_hover) &
-            (filtered_df['longitude'] == lon_hover)
-        ]
-        if not hovered_point.empty:
-            mag_val = hovered_point['mag'].values[0]
-            radius_km = 10 ** (0.5 * mag_val + 1)
-            circle_coords = common_functions.create_geodesic_circle(lat_hover, lon_hover, radius_km)
-            polygons_globe = common_functions.split_polygon_at_dateline(circle_coords)
-            for poly in polygons_globe:
-                # Éviter d'ajouter des polygones vides ou trop courts
-                if len(poly) < 3:
-                    continue
-                lat_poly = [p[0] for p in poly]
-                lon_poly = [p[1] for p in poly]
-                circle_globe = go.Scattergeo(
-                    lat=lat_poly,
-                    lon=lon_poly,
-                    fill='toself',
-                    fillcolor='rgba(0, 0, 255, 0.2)',
-                    line=dict(color='blue'),
-                    hoverinfo='skip',
-                    name='Zone ressentie'
-                )
-                globe_fig.add_trace(circle_globe)
+        # Zones ressenties si "globe-zones" coché
+        if 'globe-zones' in zone_3d and hover_data:
+            lat_hover = hover_data['points'][0]['lat']
+            lon_hover = hover_data['points'][0]['lon']
+            hovered_point = filtered_df[
+                (filtered_df['latitude'] == lat_hover) &
+                (filtered_df['longitude'] == lon_hover)
+            ]
+            if not hovered_point.empty:
+                mag_val = hovered_point['mag'].values[0]
+                radius_km = 10 ** (0.5 * mag_val + 1)
+                circle_coords = common_functions.create_geodesic_circle(lat_hover, lon_hover, radius_km)
+                polygons = common_functions.split_polygon_at_dateline(circle_coords)
+                for poly in polygons:
+                    if len(poly) < 3:
+                        continue
+                    lat_poly = [p[0] for p in poly]
+                    lon_poly = [p[1] for p in poly]
+                    main_fig.add_trace(go.Scattergeo(
+                        lat=lat_poly,
+                        lon=lon_poly,
+                        fill='toself',
+                        fillcolor='rgba(0, 0, 255, 0.2)',
+                        line=dict(color='blue'),
+                        hoverinfo='skip',
+                        name='Zone ressentie'
+                    ))
 
-    return hist_fig, map_fig, globe_fig
+    return hist_fig, main_fig
