@@ -92,7 +92,7 @@ sidebar_content = html.Div(
     children=[
         html.H2("Menu"),
 
-        html.Label("Contrôles de l'histogramme"),
+        html.Label("Contrôles de la magnitude"),
         magnitude_selection,
 
         html.Br(),
