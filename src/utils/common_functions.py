@@ -126,10 +126,16 @@ def create_globe_figure(df_filtered, globe_style='open-street-map'):
         lon=df_filtered['longitude'],
         mode='markers',
         marker=dict(size=4, color='red', opacity=0.7),
-        text=df_filtered['place'],
-        hovertemplate="<b>Lieu:</b> %{text}<br>Lat:%{lat}, Lon:%{lon}<extra></extra>",
+        # On empile place et mag dans customdata
+        customdata = df_filtered[['place','mag']].values,
+        hovertemplate=(
+            "<b>Lieu:</b> %{customdata[0]}<br>"
+            "<b>Magnitude:</b> %{customdata[1]}<br>"
+            "Lat: %{lat}, Lon: %{lon}<extra></extra>"
+        ),
         name="Séismes"
     ))
+
 
     # Projection orthographique
     fig.update_geos(

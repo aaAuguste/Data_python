@@ -236,8 +236,15 @@ def update_visuals(mag_range, map_style, layers_2d, zone_3d, view_mode, hover_da
                 lon=filtered_df['longitude'],
                 mode='markers',
                 marker=dict(size=8, color="#e74c3c", opacity=0.9),
-                name="Séismes"
+                name="Séismes",
+                text=filtered_df['mag'],  # le texte sera la magnitude
+                hovertemplate=(
+                    "Magnitude: %{text}<br>"     # affiche la mag
+                    "Latitude: %{lat}<br>"
+                    "Longitude: %{lon}<extra></extra>"
+                )
             ))
+
 
         # Si ni failles ni séismes cochés -> trace fictive
         if not layers_2d:
