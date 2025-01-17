@@ -1,5 +1,5 @@
 from dash import html
-from ..components import earthquake_visual_component
+from src.components import earthquake_visual_component
 
 layout = html.Div([
     html.H1("Activités Sismiques en 2024"),

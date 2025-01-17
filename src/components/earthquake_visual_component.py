@@ -3,24 +3,25 @@ from ..utils import common_functions
 import plotly.graph_objects as go
 import requests
 import json
+import pandas as pd  # Ajouté pour typage
 
 # URL du GeoJSON des frontières tectoniques
 geojson_url = "https://raw.githubusercontent.com/fraxen/tectonicplates/master/GeoJSON/PB2002_boundaries.json"
 response = requests.get(geojson_url)
-tectonic_data = json.loads(response.text)
+tectonic_data: dict = json.loads(response.text)
 
 # Chargement du DataFrame des séismes
-df = common_functions.load_clean_data()
+df: pd.DataFrame = common_functions.load_clean_data()
 
 # Calcul des valeurs de référence pour la plage de magnitude
-mag_min = df['mag'].min()
-mag_max = df['mag'].max()
+mag_min: float = df['mag'].min()
+mag_max: float = df['mag'].max()
 
 # Statistiques
-total_seismes = len(df)
-magnitude_moyenne = round(df['mag'].mean(), 2)
-magnitude_max_ = df['mag'].max()
-magnitude_min_ = df['mag'].min()
+total_seismes: int = len(df)
+magnitude_moyenne: float = round(df['mag'].mean(), 2)
+magnitude_max_: float = df['mag'].max()
+magnitude_min_: float = df['mag'].min()
 
 # RangeSlider pour la plage de magnitude
 magnitude_selection = dcc.RangeSlider(
@@ -29,7 +30,7 @@ magnitude_selection = dcc.RangeSlider(
     max=mag_max,
     step=0.1,
     value=[mag_min, mag_max],
-    marks={str(int(m)): str(int(m)) for m in range(int(mag_min), int(mag_max)+1)},
+    marks={str(int(m)): str(int(m)) for m in range(int(mag_min), int(mag_max) + 1)},
     tooltip={"placement": "bottom", "always_visible": True}
 )
 
@@ -55,7 +56,7 @@ view_switch = dcc.RadioItems(
         {"label": "Vue 2D", "value": "2D"},
         {"label": "Vue 3D", "value": "3D"}
     ],
-    value="2D",  # par défaut
+    value="2D",
     inputStyle={"marginRight": "5px"},
     style={"color": "#fff"}
 )
@@ -86,7 +87,6 @@ menu_toggle_btn = html.Button(
     className="menu-toggle-btn"
 )
 
-
 # Sidebar : on y place le titre, les sliders, dropdown, radio, etc.
 sidebar_content = html.Div(
     children=[
@@ -103,14 +103,12 @@ sidebar_content = html.Div(
         html.Label("Vue 2D / 3D"),
         view_switch,
 
-        # Ajout de la checklist pour les couches 2D
         html.Div([
             html.Br(),
             html.Label("Couches (2D)"),
             layer_switch_2d
         ], style={"marginTop": "10px"}),
 
-        # Ajout de la checklist pour le globe 3D
         html.Div([
             html.Br(),
             html.Label("Options (3D)"),
@@ -141,30 +139,21 @@ sidebar = html.Div(
     className="sidebar-open"
 )
 
-# Contenu principal : histogramme + main-graph + checklists 2D & 3D
 main_content = html.Div(
     id="main-content",
     className="content-open",
     children=[
-        # Bouton sidebar
         html.Div(menu_toggle_btn),
-
-        # Histogramme
         html.Div(
             dcc.Graph(id='histogram', className="graph-container"),
-            style={"marginBottom" : "20px"}
+            style={"marginBottom": "20px"}
         ),
-
-        # Un seul graph pour afficher soit la vue 2D, soit la vue 3D
         html.Div(
             dcc.Graph(id='main-graph', className="graph-container", config={'scrollZoom': True})
         ),
-
-        
     ]
 )
 
-# Assemblage final
 earthquake_component = html.Div(
     children=[sidebar, main_content],
     className="earthquake-container"
@@ -178,7 +167,7 @@ earthquake_component = html.Div(
     State("main-content", "className"),
     prevent_initial_call=True
 )
-def toggle_sidebar(n_clicks, sidebar_class, content_class):
+def toggle_sidebar(n_clicks: int, sidebar_class: str, content_class: str) -> tuple[str, str]:
     """
     Au clic sur le bouton menu-toggle-btn :
      - Si la sidebar est "open", on la ferme -> "sidebar-closed" + "content-closed"
@@ -196,22 +185,26 @@ def toggle_sidebar(n_clicks, sidebar_class, content_class):
 @callback(
     Output('histogram', 'figure'),
     Output('main-graph', 'figure'),
-    Input('magnitude-slider', 'value'),     # plage magnitudes
-    Input('map-style-dropdown', 'value'),   # style
-    Input('layer-switch-2d', 'value'),      # failles/séismes
-    Input('zone-display-switch', 'value'),  # zones globe
-    Input('view-switch', 'value'),          # "2D" ou "3D"
-    Input('main-graph', 'hoverData')        # hover data (2D ou 3D)
+    Input('magnitude-slider', 'value'),
+    Input('map-style-dropdown', 'value'),
+    Input('layer-switch-2d', 'value'),
+    Input('zone-display-switch', 'value'),
+    Input('view-switch', 'value'),
+    Input('main-graph', 'hoverData')
 )
-def update_visuals(mag_range, map_style, layers_2d, zone_3d, view_mode, hover_data):
+def update_visuals(
+    mag_range: list[float],
+    map_style: str,
+    layers_2d: list[str],
+    zone_3d: list[str],
+    view_mode: str,
+    hover_data: dict | None
+) -> tuple[go.Figure, go.Figure]:
     """
     Met à jour l'histogramme et le graphique principal (2D ou 3D),
     selon le filtrage, la vue choisie et les couches cochées.
     """
-    # Filtrage
     filtered_df = df[df['mag'].between(*mag_range)]
-
-    # 1) Histogramme
     hist_fig = common_functions.create_magnitude_histogram(filtered_df)
     hist_fig.update_layout(
         template="plotly_dark",
@@ -220,16 +213,10 @@ def update_visuals(mag_range, map_style, layers_2d, zone_3d, view_mode, hover_da
         font=dict(color="#FFFFFF")
     )
 
-    # 2) Vue 2D ou 3D ?
     if view_mode == "2D":
-        # Créer la figure Mapbox
         main_fig = common_functions.create_earthquake_map(filtered_df, map_style)
-
-        # Ajouter les failles si cochées
         if "failles" in layers_2d:
             main_fig = common_functions.add_fault_lines_mapbox(main_fig, tectonic_data)
-
-        # Ajouter les séismes si cochés
         if "seismes" in layers_2d:
             main_fig.add_trace(go.Scattermapbox(
                 lat=filtered_df['latitude'],
@@ -237,16 +224,13 @@ def update_visuals(mag_range, map_style, layers_2d, zone_3d, view_mode, hover_da
                 mode='markers',
                 marker=dict(size=8, color="#e74c3c", opacity=0.9),
                 name="Séismes",
-                text=filtered_df['mag'],  # le texte sera la magnitude
+                text=filtered_df['mag'],
                 hovertemplate=(
-                    "Magnitude: %{text}<br>"     # affiche la mag
+                    "Magnitude: %{text}<br>"
                     "Latitude: %{lat}<br>"
                     "Longitude: %{lon}<extra></extra>"
                 )
             ))
-
-
-        # Si ni failles ni séismes cochés -> trace fictive
         if not layers_2d:
             main_fig.add_trace(go.Scattermapbox(
                 lon=[0], lat=[0],
@@ -255,17 +239,13 @@ def update_visuals(mag_range, map_style, layers_2d, zone_3d, view_mode, hover_da
                 name="(Aucune couche)",
                 showlegend=True
             ))
-
-        # Mise en forme
         main_fig.update_layout(
             template="plotly_dark",
             paper_bgcolor="#2A2E3E",
             font=dict(color="#FFFFFF"),
             uirevision='map_update'
         )
-
     else:
-        # "3D" : on utilise create_globe_figure
         main_fig = common_functions.create_globe_figure(filtered_df, globe_style=map_style)
         main_fig.update_layout(
             uirevision="globe_update",
@@ -273,8 +253,6 @@ def update_visuals(mag_range, map_style, layers_2d, zone_3d, view_mode, hover_da
             paper_bgcolor="#2A2E3E",
             font=dict(color="#FFFFFF")
         )
-
-        # Zones ressenties si "globe-zones" coché
         if 'globe-zones' in zone_3d and hover_data:
             lat_hover = hover_data['points'][0]['lat']
             lon_hover = hover_data['points'][0]['lon']

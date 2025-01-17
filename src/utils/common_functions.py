@@ -1,16 +1,20 @@
 import pandas as pd
 import plotly.graph_objects as go
 from geopy.distance import distance as geopy_distance
+from typing import List, Tuple,Any, Union
 
-def create_magnitude_histogram(df):
+def create_magnitude_histogram(df: pd.DataFrame) -> go.Figure:
     """
     Crée un histogramme des magnitudes des séismes.
+    Args:
+        df: DataFrame contenant une colonne 'mag' pour les magnitudes.
+    Returns:
+        Un objet `go.Figure` représentant l'histogramme.
     """
     fig = go.Figure()
-
     fig.add_trace(go.Histogram(
         x=df['mag'],
-        marker_color='#3498db',  # Couleur bleue
+        marker_color='#3498db',
         opacity=0.75
     ))
     fig.update_layout(
@@ -23,14 +27,16 @@ def create_magnitude_histogram(df):
     )
     return fig
 
-def create_earthquake_map(df, map_style='open-street-map'):
+def create_earthquake_map(df: pd.DataFrame, map_style: str = 'open-street-map') -> go.Figure:
     """
-    Crée une figure Mapbox (sans séismes ni failles),
-    simplement centrée sur la zone moyenne du df (si non vide).
+    Crée une figure Mapbox centrée sur la zone moyenne du DataFrame.
+    Args:
+        df: DataFrame contenant les colonnes 'latitude' et 'longitude'.
+        map_style: Style de la carte ('open-street-map', 'carto-positron', etc.).
+    Returns:
+        Un objet `go.Figure` représentant la carte.
     """
     fig = go.Figure()
-
-    # Choix du style
     if map_style in ['open-street-map', 'carto-positron', 'carto-darkmatter', 'white-bg']:
         fig.update_layout(mapbox_style=map_style)
     elif map_style == 'satellite-esri':
@@ -55,16 +61,11 @@ def create_earthquake_map(df, map_style='open-street-map'):
                 ]
             }]
         )
-
-    # Centrage et zoom
     if not df.empty:
         center_lat = df['latitude'].mean()
         center_lon = df['longitude'].mean()
     else:
-        # Si DF vide, centrer sur (0,0)
-        center_lat = 0
-        center_lon = 0
-
+        center_lat, center_lon = 0, 0
     fig.update_layout(
         mapbox=dict(
             zoom=1,
@@ -76,18 +77,23 @@ def create_earthquake_map(df, map_style='open-street-map'):
     )
     return fig
 
-
-
-def load_clean_data():
+def load_clean_data() -> pd.DataFrame:
     """
     Charge les données nettoyées depuis un fichier CSV.
+    Returns:
+        DataFrame contenant les données nettoyées.
     """
-    df = pd.read_csv('data/cleaned/earthquake_data_cleaned.csv')
-    return df
+    return pd.read_csv('data/cleaned/earthquake_data_cleaned.csv')
 
-def create_hover_circle(lat, lon, radius):
+def create_hover_circle(lat: float, lon: float, radius: float) -> go.Scattermapbox:
     """
-    Crée un cercle pour représenter la zone ressentie autour du point.
+    Crée un cercle pour représenter la zone ressentie autour d'un point.
+    Args:
+        lat: Latitude du centre du cercle.
+        lon: Longitude du centre du cercle.
+        radius: Rayon du cercle.
+    Returns:
+        Un objet `Scattermapbox` représentant le cercle.
     """
     return go.Scattermapbox(
         lat=[lat],
@@ -98,46 +104,39 @@ def create_hover_circle(lat, lon, radius):
         name="Zone ressentie"
     )
 
-def create_globe_figure(df_filtered, globe_style='open-street-map'):
+def create_globe_figure(df_filtered: pd.DataFrame, globe_style: str = 'open-street-map') -> go.Figure:
     """
-    Crée un globe (projection orthographique)
-    en adaptant approximativement les couleurs land/ocean au style choisi.
+    Crée un globe (projection orthographique) avec les séismes.
+    Args:
+        df_filtered: DataFrame contenant les colonnes 'latitude', 'longitude', 'place', et 'mag'.
+        globe_style: Style du globe.
+    Returns:
+        Un objet `go.Figure` représentant le globe.
     """
-    land_color = "rgb(229,229,229)"
-    ocean_color = "rgb(135,206,250)"
+    land_color, ocean_color = "rgb(229,229,229)", "rgb(135,206,250)"
     if globe_style == 'carto-darkmatter':
-        land_color = "rgb(40,40,40)"
-        ocean_color = "rgb(30,30,30)"
+        land_color, ocean_color = "rgb(40,40,40)", "rgb(30,30,30)"
     elif globe_style == 'carto-positron':
-        land_color = "rgb(250,250,250)"
-        ocean_color = "rgb(220,220,220)"
+        land_color, ocean_color = "rgb(250,250,250)", "rgb(220,220,220)"
     elif globe_style == 'ocean-esri':
-        land_color = "rgb(236,236,236)"
-        ocean_color = "rgb(173,216,230)"
+        land_color, ocean_color = "rgb(236,236,236)", "rgb(173,216,230)"
     elif globe_style == 'satellite-esri':
-        land_color = "rgb(70,120,50)"
-        ocean_color = "rgb(30,60,130)"
-
+        land_color, ocean_color = "rgb(70,120,50)", "rgb(30,60,130)"
     fig = go.Figure()
-
-    # Points sismiques
     fig.add_trace(go.Scattergeo(
         lat=df_filtered['latitude'],
         lon=df_filtered['longitude'],
         mode='markers',
         marker=dict(size=4, color='red', opacity=0.7),
-        # On empile place et mag dans customdata
-        customdata = df_filtered[['place','mag']].values,
+        customdata=df_filtered[['place', 'mag']].values,
         hovertemplate=(
             "<b>Lieu:</b> %{customdata[0]}<br>"
             "<b>Magnitude:</b> %{customdata[1]}<br>"
-            "Lat: %{lat}, Lon: %{lon}<extra></extra>"
+            "Latitude: %{lat}<br>"
+            "Longitude: %{lon}<extra></extra>"
         ),
         name="Séismes"
     ))
-
-
-    # Projection orthographique
     fig.update_geos(
         projection_type="orthographic",
         showcountries=True,
@@ -147,7 +146,6 @@ def create_globe_figure(df_filtered, globe_style='open-street-map'):
         oceancolor=ocean_color,
         showocean=True
     )
-
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor="#2A2E3E",
@@ -156,16 +154,20 @@ def create_globe_figure(df_filtered, globe_style='open-street-map'):
         height=500,
         margin=dict(l=0, r=0, t=0, b=0),
         uirevision="globe_update",
-        geo=dict(
-            projection_scale=0.85
-        )
+        geo=dict(projection_scale=0.85)
     )
     return fig
 
-def create_geodesic_circle(lat_c, lon_c, radius_km, n_points=72):
+def create_geodesic_circle(lat_c: float, lon_c: float, radius_km: float, n_points: int = 72) -> List[Tuple[float, float]]:
     """
-    Construit un polygone (liste de (lat, lon)) formant un cercle géodésique
-    (suivant la courbure de la Terre) de rayon `radius_km` autour de (lat_c, lon_c).
+    Construit un polygone formant un cercle géodésique autour d'un point.
+    Args:
+        lat_c: Latitude du centre du cercle.
+        lon_c: Longitude du centre du cercle.
+        radius_km: Rayon du cercle en kilomètres.
+        n_points: Nombre de points à utiliser pour construire le cercle.
+    Returns:
+        Liste de tuples (latitude, longitude) représentant le cercle.
     """
     coords = []
     step = 360 / n_points
@@ -173,74 +175,64 @@ def create_geodesic_circle(lat_c, lon_c, radius_km, n_points=72):
         bearing = i * step
         pt = geopy_distance(kilometers=radius_km).destination((lat_c, lon_c), bearing)
         coords.append((pt.latitude, pt.longitude))
-    # Boucler en revenant au premier point
     if coords:
         coords.append(coords[0])
     return coords
 
-def split_polygon_at_dateline(coords):
+def split_polygon_at_dateline(coords: List[Tuple[float, float]]) -> List[List[Tuple[float, float]]]:
     """
-    Découpe la liste de points (lat, lon) en plusieurs polygones
-    si l'on franchit ±180° de longitude. Évite les grandes lignes
-    qui traversent la map ou le globe quand le cercle est très grand.
-    
-    Retourne une liste de polygones, chacun ne franchissant pas ±180°.
+    Découpe une liste de points en plusieurs polygones si elle traverse le méridien ±180°.
+    Args:
+        coords: Liste de tuples (latitude, longitude) représentant un polygone.
+    Returns:
+        Liste de polygones ne traversant pas le méridien ±180°.
     """
-    polygons = []
+    polygons: list[Any] = []
     if not coords:
         return polygons
-
     current_poly = [coords[0]]
     for i in range(1, len(coords)):
         lat_prev, lon_prev = current_poly[-1]
         lat_curr, lon_curr = coords[i]
-        
-        # Détection d'une "coupure" sur ±180° (antiméridien)
         if abs(lon_curr - lon_prev) > 180:
             polygons.append(current_poly[:])
             current_poly = [(lat_curr, lon_curr)]
         else:
             current_poly.append((lat_curr, lon_curr))
-    
     if current_poly:
         polygons.append(current_poly)
     return polygons
 
-def add_fault_lines_mapbox(fig, tectonic_data):
+def add_fault_lines_mapbox(fig: go.Figure, tectonic_data: dict) -> go.Figure:
     """
-    Construit un unique Scattermapbox contenant toutes les failles.
-    Chaque segment est séparé par None, ce qui permet à Plotly
-    de tracer plusieurs lignes dans un seul trace.
+    Ajoute des failles tectoniques à une figure Mapbox.
+    Args:
+        fig: Objet `go.Figure` représentant une carte.
+        tectonic_data: Données GeoJSON des failles tectoniques.
+    Returns:
+        La figure modifiée avec les failles tectoniques.
     """
     all_lons = []
     all_lats = []
-
     for feature in tectonic_data["features"]:
         geometry = feature["geometry"]
         if geometry["type"] == "LineString":
-            coords = geometry["coordinates"]  # liste de [lon, lat]
+            coords = geometry["coordinates"]
             for c in coords:
                 all_lons.append(c[0])
                 all_lats.append(c[1])
-            # Séparation entre segments
             all_lons.append(None)
             all_lats.append(None)
-
         elif geometry["type"] == "MultiLineString":
             for line_coords in geometry["coordinates"]:
-                # line_coords : liste de [lon, lat]
                 for c in line_coords:
                     all_lons.append(c[0])
                     all_lats.append(c[1])
                 all_lons.append(None)
                 all_lats.append(None)
-
-    # Retirer éventuellement le dernier None
     if all_lons and all_lons[-1] is None:
         all_lons.pop()
         all_lats.pop()
-
-    # On ajoute UNE SEULE trace en mode "lines"
     fig.add_trace(go.Scattermapbox(
         lon=all_lons,
         lat=all_lats,
